@@ -20,6 +20,7 @@ public class RadialMenu : MonoBehaviour
     Vector3 baseSkillIconScale;
 
     int selectedSkillIndex = 3;
+    int prevSelectedSkillIndex = 3;
     int topIconIndex = 0;
     int bottomIconIndex = 1;
 
@@ -33,12 +34,15 @@ public class RadialMenu : MonoBehaviour
     TextMeshProUGUI skillText;
     public bool isClickable = true;
 
+    public float[] prevAngles;
+
     void Awake()
     {
         MenuBG.SetActive(false);
         menuBase.gameObject.SetActive(false);
         openMenuPosition = openMenuPosHolder.position;
         CalculateScaleFactor();
+        prevAngles = new float[skillIcons.Count];
     }
 
 
@@ -69,6 +73,7 @@ public class RadialMenu : MonoBehaviour
                 closeMenuPosition.y + radius * Mathf.Sin(angle * Mathf.Deg2Rad),
                 0f
             );
+            prevAngles[i] = angle;
             if (resetScale)
             {
                 Vector3 newScale = new Vector3(
@@ -145,11 +150,11 @@ public class RadialMenu : MonoBehaviour
         isClickable = false;
         if (isAfter(clickedIndex, selectedSkillIndex, skillIcons.Count))
         {
-            MenuUp();
+            MenuUp(indexDiff);
         }
         else
         {
-            MenuDown();
+            MenuDown(-indexDiff);
         }
         indexDiff = GetIndexDifference(clickedIndex, selectedSkillIndex, skillIcons.Count);
         UpdateSkillText();
@@ -157,16 +162,20 @@ public class RadialMenu : MonoBehaviour
         //selectedSkillIndex = clickedIndex;
     }
 
-    void MenuUp()
+    void MenuUp(int stepCount=1)
     {
-        selectedSkillIndex = (selectedSkillIndex + 1) % skillIcons.Count;
-        RearrangeIcons(selectedSkillIndex, 1);
+        Debug.Log("Move up by " + stepCount);
+        prevSelectedSkillIndex = selectedSkillIndex;
+        selectedSkillIndex = (selectedSkillIndex + stepCount) % skillIcons.Count;
+        RearrangeIcons(selectedSkillIndex, stepCount);
     }
 
-    void MenuDown()
+    void MenuDown(int stepCount=-1)
     {
-        selectedSkillIndex = (selectedSkillIndex - 1 + skillIcons.Count) % skillIcons.Count;
-        RearrangeIcons(selectedSkillIndex, -1);
+        Debug.Log("Move down by " + stepCount);
+        prevSelectedSkillIndex = selectedSkillIndex;
+        selectedSkillIndex = (selectedSkillIndex + stepCount + skillIcons.Count) % skillIcons.Count;
+        RearrangeIcons(selectedSkillIndex, stepCount);
     }
 
     void AnimateSkillsButton()
@@ -265,6 +274,7 @@ public class RadialMenu : MonoBehaviour
                 }
                 angle = 180f + offsetAngle;
             }
+            Debug.Log("Index " + i + " Angle: " + angle);
             Vector3 newPosition = new Vector3(
                 openMenuPosition.x + rearrangedRadius * Mathf.Cos(angle * Mathf.Deg2Rad),
                 openMenuPosition.y + rearrangedRadius * Mathf.Sin(angle * Mathf.Deg2Rad),
@@ -281,20 +291,36 @@ public class RadialMenu : MonoBehaviour
                 skillIcons[i].transform.localScale.z
             );
             StartCoroutine(ScaleIcon(skillIcons[i], newScale, animationSpeedNormalized));
+           /* if(direction != 0) {
+                StartCoroutine(MoveIconBetweenAngles(skillIcons[i], prevAngles[i], angle, animationSpeedNormalized, rearrangedRadius, direction));
+
+            } else {
+                StartCoroutine(MoveIconToPosition(skillIcons[i], newPosition, animationSpeedNormalized));
+            }*/
 
             if (direction == 1 && bottomIconIndex == i)
             {
                 // Up key
-                StartCoroutine(MoveIconToPositionCircular(skillIcons[i], newPosition, animationSpeedNormalized, rearrangedRadius, false));
+                StartCoroutine(MoveIconBetweenAngles(skillIcons[i], prevAngles[i], angle, animationSpeedNormalized, rearrangedRadius, direction));
             }
             else if (direction == -1 && topIconIndex == i)
             {
-                StartCoroutine(MoveIconToPositionCircular(skillIcons[i], newPosition, animationSpeedNormalized, rearrangedRadius));
+                // BELOW
+                StartCoroutine(MoveIconBetweenAngles(skillIcons[i], prevAngles[i], angle, animationSpeedNormalized, rearrangedRadius, direction));
+            }
+            else if(direction == 2 && !isAfter(i, prevSelectedSkillIndex, numIcons) && i != prevSelectedSkillIndex)
+            {
+                StartCoroutine(MoveIconBetweenAngles(skillIcons[i], prevAngles[i], angle, animationSpeedNormalized, rearrangedRadius, direction));
+            }
+            else if(direction == -2 && isAfter(i, prevSelectedSkillIndex, numIcons) && i != prevSelectedSkillIndex)
+            {
+                StartCoroutine(MoveIconBetweenAngles(skillIcons[i], prevAngles[i], angle, animationSpeedNormalized, rearrangedRadius, direction));
             }
             else
             {
                 StartCoroutine(MoveIconToPosition(skillIcons[i], newPosition, animationSpeedNormalized));
             }
+            prevAngles[i] = angle;
         }
         topIconIndex = (topIconIndex + direction + skillIcons.Count) % skillIcons.Count;
         bottomIconIndex = (bottomIconIndex + direction + skillIcons.Count) % skillIcons.Count;
@@ -323,7 +349,7 @@ public class RadialMenu : MonoBehaviour
         transform.position = targetPosition;
     }
 
-    IEnumerator MoveIconToPositionCircular(Image icon, Vector3 targetPosition, float duration, float radius, bool isClockwise = true)
+    IEnumerator MoveIconToPositionCircular(Image icon, Vector3 targetPosition, float duration, float radius, int direction, bool isClockwise = true)
     {
         float time = 0;
         Vector3 startPosition = icon.transform.position;
@@ -352,6 +378,47 @@ public class RadialMenu : MonoBehaviour
             yield return null;
         }
         icon.transform.position = targetPosition;
+        isClickable = true;
+    }
+
+    IEnumerator MoveIconBetweenAngles(Image icon, float startAngle, float endAngle, float duration, float radius, int direction)
+    {
+        float time = 0;
+        Vector3 startPosition = icon.transform.position;
+        endAngle = startAngle;
+        // Calculate endAngle
+        switch(direction) {
+            case 1:
+                endAngle += +180;
+                break;
+            case -1:
+                endAngle += -180;
+                break;
+            case 2:
+                endAngle += +180+45;
+                break;
+            case -2:
+                endAngle += -180-45;
+                break;
+            default:
+                endAngle += 0;
+                break;
+        }
+        Debug.Log("Moving icon index " + skillIcons.IndexOf(icon) + " from " + startAngle + " to " + endAngle);
+        while (time < duration)
+        {
+            // Instead of linear interpolation, use circular interpolation
+            float angle = Mathf.Lerp(startAngle, endAngle, time / duration);
+            Vector3 newPosition = new Vector3(
+                openMenuPosition.x + radius * Mathf.Cos(angle * Mathf.Deg2Rad),
+                openMenuPosition.y + radius * Mathf.Sin(angle * Mathf.Deg2Rad),
+                0f
+            );
+            icon.transform.position = newPosition;
+            time += Time.deltaTime;
+            yield return null;
+        }
+        //icon.transform.position = startPosition;
         isClickable = true;
     }
 
