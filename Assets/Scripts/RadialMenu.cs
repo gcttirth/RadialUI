@@ -19,8 +19,6 @@ public class RadialMenu : MonoBehaviour
     Vector3 closeMenuPosition;
     Vector3 baseSkillIconScale;
 
-    Vector3[] scaleDiffMatrix;
-
     int selectedSkillIndex = 3;
     int topIconIndex = 0;
     int bottomIconIndex = 1;
@@ -99,7 +97,9 @@ public class RadialMenu : MonoBehaviour
         else if (Input.GetKeyUp(KeyCode.DownArrow))
         {
             MenuDown();
-        } else if(Input.GetKey(KeyCode.Escape)) {
+        }
+        else if (Input.GetKey(KeyCode.Escape))
+        {
             Application.Quit();
         }
         UpdateSkillText();
@@ -107,7 +107,8 @@ public class RadialMenu : MonoBehaviour
 
     void OnSkillsButtonClick()
     {
-        if(!isClickable) {
+        if (!isClickable)
+        {
             return;
         }
         isClickable = false;
@@ -137,7 +138,8 @@ public class RadialMenu : MonoBehaviour
         }
         int clickedIndex = skillIcons.IndexOf(clickedIcon);
         int indexDiff = GetIndexDifference(clickedIndex, selectedSkillIndex, skillIcons.Count);
-        if(indexDiff==0) {
+        if (indexDiff == 0)
+        {
             return;
         }
         isClickable = false;
@@ -363,7 +365,7 @@ public class RadialMenu : MonoBehaviour
         Vector3 targetScale = (isScaleUp) ?
             new Vector3(startScale.x * scaleMultiplier, startScale.y * scaleMultiplier, startScale.z) :
             new Vector3(startScale.x / scaleMultiplier, startScale.y / scaleMultiplier, startScale.z);
-       yield return StartCoroutine(ScaleCoroutine(icon.transform, targetScale, duration));
+        yield return StartCoroutine(ScaleCoroutine(icon.transform, targetScale, duration));
     }
 
     IEnumerator ScaleCoroutine(Transform transform, Vector3 targetScale, float duration)
