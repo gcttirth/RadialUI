@@ -162,7 +162,7 @@ public class RadialMenu : MonoBehaviour
         //selectedSkillIndex = clickedIndex;
     }
 
-    void MenuUp(int stepCount=1)
+    void MenuUp(int stepCount = 1)
     {
         Debug.Log("Move up by " + stepCount);
         prevSelectedSkillIndex = selectedSkillIndex;
@@ -170,7 +170,7 @@ public class RadialMenu : MonoBehaviour
         RearrangeIcons(selectedSkillIndex, stepCount);
     }
 
-    void MenuDown(int stepCount=-1)
+    void MenuDown(int stepCount = -1)
     {
         Debug.Log("Move down by " + stepCount);
         prevSelectedSkillIndex = selectedSkillIndex;
@@ -254,65 +254,30 @@ public class RadialMenu : MonoBehaviour
         Debug.Log("Top: " + topIconIndex + ", Bottom: " + bottomIconIndex);
         float rearrangedRadius = radius * buttonScaleMultiplier; // Adjust radius for the new arrangement
         int numIcons = skillIcons.Count;
-        float _scaleMultiplier;
+
+        float singleAngleOffset = 360f / 2f / (numIcons - 1); // Pre-calculate single angle offset
+
         for (int i = 0; i < numIcons; i++)
         {
-
             float indexDiff = GetIndexDifference(i, selectedIconIndex, numIcons);
-            float angle;
-            if (i == selectedIconIndex)
-            {
-                angle = 180f; // Selected icon at the west
-            }
-            else
-            {
-                float singleAngleOffset = (360f / 2f / (numIcons - 1));
-                float offsetAngle = indexDiff * singleAngleOffset;
-                if (isAfter(i, selectedIconIndex, numIcons))
-                {
-                    offsetAngle = -offsetAngle;
-                }
-                angle = 180f + offsetAngle;
-            }
-            Debug.Log("Index " + i + " Angle: " + angle);
-            Vector3 newPosition = new Vector3(
-                openMenuPosition.x + rearrangedRadius * Mathf.Cos(angle * Mathf.Deg2Rad),
-                openMenuPosition.y + rearrangedRadius * Mathf.Sin(angle * Mathf.Deg2Rad),
-                0f
-            );
-            _scaleMultiplier = 1f + 0.4f * indexDiff;
-            if (indexDiff == 0)
-            {
-                _scaleMultiplier = 1.15f;
-            }
+            float angle = CalculateAngle(i, selectedIconIndex, indexDiff, singleAngleOffset);
+            Vector3 newPosition = CalculateNewPosition(angle, rearrangedRadius);
+
+            float _scaleMultiplier = CalculateScaleMultiplier(indexDiff);
             Vector3 newScale = new Vector3(
                 baseSkillIconScale.x / _scaleMultiplier,
                 baseSkillIconScale.y / _scaleMultiplier,
                 skillIcons[i].transform.localScale.z
             );
+
             StartCoroutine(ScaleIcon(skillIcons[i], newScale, animationSpeedNormalized));
-           /* if(direction != 0) {
-                StartCoroutine(MoveIconBetweenAngles(skillIcons[i], prevAngles[i], angle, animationSpeedNormalized, rearrangedRadius, direction));
 
-            } else {
-                StartCoroutine(MoveIconToPosition(skillIcons[i], newPosition, animationSpeedNormalized));
-            }*/
+            bool shouldMoveBetweenAngles = (direction == 1 && bottomIconIndex == i) ||
+                                           (direction == -1 && topIconIndex == i) ||
+                                           (direction == 2 && !isAfter(i, prevSelectedSkillIndex, numIcons) && i != prevSelectedSkillIndex) ||
+                                           (direction == -2 && isAfter(i, prevSelectedSkillIndex, numIcons) && i != prevSelectedSkillIndex);
 
-            if (direction == 1 && bottomIconIndex == i)
-            {
-                // Up key
-                StartCoroutine(MoveIconBetweenAngles(skillIcons[i], prevAngles[i], angle, animationSpeedNormalized, rearrangedRadius, direction));
-            }
-            else if (direction == -1 && topIconIndex == i)
-            {
-                // BELOW
-                StartCoroutine(MoveIconBetweenAngles(skillIcons[i], prevAngles[i], angle, animationSpeedNormalized, rearrangedRadius, direction));
-            }
-            else if(direction == 2 && !isAfter(i, prevSelectedSkillIndex, numIcons) && i != prevSelectedSkillIndex)
-            {
-                StartCoroutine(MoveIconBetweenAngles(skillIcons[i], prevAngles[i], angle, animationSpeedNormalized, rearrangedRadius, direction));
-            }
-            else if(direction == -2 && isAfter(i, prevSelectedSkillIndex, numIcons) && i != prevSelectedSkillIndex)
+            if (shouldMoveBetweenAngles)
             {
                 StartCoroutine(MoveIconBetweenAngles(skillIcons[i], prevAngles[i], angle, animationSpeedNormalized, rearrangedRadius, direction));
             }
@@ -320,10 +285,47 @@ public class RadialMenu : MonoBehaviour
             {
                 StartCoroutine(MoveIconToPosition(skillIcons[i], newPosition, animationSpeedNormalized));
             }
+
             prevAngles[i] = angle;
         }
-        topIconIndex = (topIconIndex + direction + skillIcons.Count) % skillIcons.Count;
-        bottomIconIndex = (bottomIconIndex + direction + skillIcons.Count) % skillIcons.Count;
+
+        topIconIndex = (topIconIndex + direction + numIcons) % numIcons;
+        bottomIconIndex = (bottomIconIndex + direction + numIcons) % numIcons;
+    }
+
+    float CalculateAngle(int index, int selectedIndex, float indexDiff, float singleAngleOffset)
+    {
+        if (index == selectedIndex)
+        {
+            return 180f; // Selected icon at the west
+        }
+        else
+        {
+            float offsetAngle = indexDiff * singleAngleOffset;
+            if (isAfter(index, selectedIndex, skillIcons.Count))
+            {
+                offsetAngle = -offsetAngle;
+            }
+            return 180f + offsetAngle;
+        }
+    }
+
+    Vector3 CalculateNewPosition(float angle, float radius)
+    {
+        return new Vector3(
+            openMenuPosition.x + radius * Mathf.Cos(angle * Mathf.Deg2Rad),
+            openMenuPosition.y + radius * Mathf.Sin(angle * Mathf.Deg2Rad),
+            0f
+        );
+    }
+
+    float CalculateScaleMultiplier(float indexDiff)
+    {
+        if (indexDiff == 0)
+        {
+            return 1.15f;
+        }
+        return 1f + 0.4f * indexDiff;
     }
 
     IEnumerator MoveIconToPosition(Image icon, Vector3 targetPosition, float duration)
@@ -349,45 +351,14 @@ public class RadialMenu : MonoBehaviour
         transform.position = targetPosition;
     }
 
-    IEnumerator MoveIconToPositionCircular(Image icon, Vector3 targetPosition, float duration, float radius, int direction, bool isClockwise = true)
-    {
-        float time = 0;
-        Vector3 startPosition = icon.transform.position;
-        float startAngle, endAngle;
-        if (isClockwise)
-        {
-            startAngle = 90;
-            endAngle = -90;
-        }
-        else
-        {
-            startAngle = -90;
-            endAngle = 90;
-        }
-        while (time < duration)
-        {
-            // Instead of linear interpolation, use circular interpolation
-            float angle = Mathf.Lerp(startAngle, endAngle, time / duration);
-            Vector3 newPosition = new Vector3(
-                skillsButton.transform.position.x + radius * Mathf.Cos(angle * Mathf.Deg2Rad),
-                skillsButton.transform.position.y + radius * Mathf.Sin(angle * Mathf.Deg2Rad),
-                0f
-            );
-            icon.transform.position = newPosition;
-            time += Time.deltaTime;
-            yield return null;
-        }
-        icon.transform.position = targetPosition;
-        isClickable = true;
-    }
-
     IEnumerator MoveIconBetweenAngles(Image icon, float startAngle, float endAngle, float duration, float radius, int direction)
     {
         float time = 0;
         Vector3 startPosition = icon.transform.position;
         endAngle = startAngle;
         // Calculate endAngle
-        switch(direction) {
+        switch (direction)
+        {
             case 1:
                 endAngle += +180;
                 break;
@@ -395,10 +366,10 @@ public class RadialMenu : MonoBehaviour
                 endAngle += -180;
                 break;
             case 2:
-                endAngle += +180+45;
+                endAngle += +180 + 45;
                 break;
             case -2:
-                endAngle += -180-45;
+                endAngle += -180 - 45;
                 break;
             default:
                 endAngle += 0;
